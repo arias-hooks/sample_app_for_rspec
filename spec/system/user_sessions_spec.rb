@@ -28,7 +28,7 @@ RSpec.describe 'UserSessions', type: :system do
     let(:user) { create(:user, password: 'password') }
     context 'ログアウトボタンをクリック' do
       it 'ログアウト処理が成功する' do
-        sign_in_as user
+        login_as user
         visit root_path
         click_link 'Logout'
         expect(page).to have_content 'Logged out'

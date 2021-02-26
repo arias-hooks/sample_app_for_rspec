@@ -4,7 +4,7 @@ RSpec.describe 'Tasks', type: :system do
   let(:user) { create(:user, password: 'password') }
   describe 'ログイン後' do
     before do
-      sign_in_as user
+      login_as user
     end
     describe 'タスクの新規登録' do
       it 'タスクの新規登録が成功する' do

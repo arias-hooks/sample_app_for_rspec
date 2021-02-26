@@ -61,7 +61,7 @@ RSpec.describe 'Users', type: :system do
     let(:user) { create(:user, password: 'password') }
     let(:other_signed_up_user) { create(:user) }
     before do
-      sign_in_as user
+      login_as user
     end
     describe 'ユーザー編集' do
       context 'フォームの入力値が正常' do
