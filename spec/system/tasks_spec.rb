@@ -1,65 +1,136 @@
 require 'rails_helper'
 
 RSpec.describe 'Tasks', type: :system do
-  let(:user) { create(:user, password: 'password') }
+  let(:user) { create(:user) }
+  let(:task) { create(:task) }
+
   describe 'ログイン後' do
-    before do
-      login_as user
-    end
+    before { login_as user }
+
     describe 'タスクの新規登録' do
-      it 'タスクの新規登録が成功する' do
-        visit new_task_path
-        expect {
-          fill_in 'Title', with: 'title_1'
-          fill_in 'Content', with: 'content'
-          select 'todo', from: 'Status'
-          fill_in 'Deadline', with: 1.week.from_now
+      context 'フォームの入力値が正常' do
+        it 'タスクの新規登録が成功する' do
+          visit new_task_path
+          fill_in 'Title', with: 'test_title'
+          fill_in 'Content', with: 'test_content'
+          select 'doing', from: 'Status'
+          fill_in 'Deadline', with: DateTime.new(2020, 6, 1, 10, 30)
           click_button 'Create Task'
-        }.to change(Task, :count).by(1)
-        expect(page).to have_content 'Task was successfully created.'
-        expect(page).to have_content 'title_1'
-        expect(current_path).to eq task_path(1)
+          expect(page).to have_content 'Task was successfully created.'
+          expect(page).to have_content 'Title: test_title'
+          expect(page).to have_content 'Content: test_content'
+          expect(page).to have_content 'Status: doing'
+          expect(page).to have_content 'Deadline: 2020/6/1 10:30'
+          expect(current_path).to eq task_path(1)
+        end
+      end
+      context 'タスクが未入力' do
+        it 'タスクの新規登録が失敗する' do
+          visit new_task_path
+          fill_in 'Title', with: ''
+          fill_in 'Content', with: 'test_content'
+          click_button 'Create Task'
+          expect(page).to have_content '1 error prohibited this task from being saved:'
+          expect(page).to have_content "Title can't be blank"
+          expect(current_path).to eq tasks_path
+        end
+      end
+      context '登録済みのタスクを入力' do
+        it 'タスクの新規登録が失敗する' do
+          visit new_task_path
+          other_task = create(:task)
+          fill_in 'Title', with: other_task.title
+          fill_in 'Content', with: 'test_content'
+          click_button 'Create Task'
+          expect(page).to have_content '1 error prohibited this task from being saved:'
+          expect(page).to have_content 'Title has already been taken'
+          expect(current_path).to eq tasks_path
+        end
       end
     end
     describe 'タスクの編集' do
-      it 'タスクの編集が成功する' do
-        task = create(:task, user: user)
-        visit edit_task_path(task.id)
-        fill_in 'Title', with: 'edit_title'
-        click_button 'Update Task'
-        expect(page).to have_content 'Task was successfully updated.'
-        expect(page).to have_content 'edit_title'
-        expect(current_path).to eq task_path(task.id)
+      let!(:task) { create(:task, user: user) }
+      let(:other_task) { create(:task, user: user) }
+      before { visit edit_task_path(task) }
+      context 'フォームの入力値が正常値' do
+        it 'タスクの編集が成功する' do
+          fill_in 'Title', with: 'updated_title'
+          select :done, from: 'Status'
+          click_button 'Update Task'
+          expect(page).to have_content 'Task was successfully updated.'
+          expect(page).to have_content 'Title: updated_title'
+          expect(page).to have_content 'Status: done'
+          expect(current_path).to eq task_path(task)
+        end
+      end
+      context 'タイトルが未入力' do
+        it 'タスクの編集に失敗する' do
+          fill_in 'Title', with: nil
+          select :done, from: 'Status'
+          click_button 'Update Task'
+          expect(page).to have_content '1 error prohibited this task from being saved:'
+          expect(page).to have_content "Title can't be blank"
+          expect(current_path).to eq task_path(task)
+        end
+      end
+      context '登録済のタイトルを入力' do
+        it 'タスクの編集が失敗する' do
+          fill_in 'Title', with: other_task.title
+          select :todo, from: 'Status'
+          click_button 'Update Task'
+          expect(page).to have_content '1 error prohibited this task from being saved'
+          expect(page).to have_content "Title has already been taken"
+          expect(current_path).to eq task_path(task)
+        end
       end
     end
-    describe 'タスクの削除' do
+    describe 'タスク削除' do
+      let!(:task) { create(:task, user: user) }
+
       it 'タスクの削除が成功する' do
-        task = create(:task, user: user)
         visit tasks_path
-        page.accept_alert 'Are you sure?' do
-          click_link 'Destroy'
-        end
-        expect(page).to have_content 'Task was successfully destroyed.'
+        click_link 'Destroy'
+        expect(page.accept_confirm).to eq 'Are you sure?'
+        expect(page).to have_content 'Task was successfully destroyed'
         expect(current_path).to eq tasks_path
+        expect(page).not_to have_content task.title
       end
     end
   end
 
   describe 'ログイン前' do
-    describe 'タスクの新規登録' do
-      it 'タスクの新規登録ページへのアクセスが失敗する' do
-        visit new_task_path
-        expect(page).to have_content 'Login required'
-        expect(current_path).to eq login_path
+    describe 'ページ遷移確認' do
+      context 'タスクの新規登録ページにアクセス' do
+        it '新規登録ページへのアクセスが失敗する' do
+          visit new_task_path
+          expect(page).to have_content 'Login required'
+          expect(current_path).to eq login_path
+        end
       end
-    end
-    describe 'タスクの編集' do
-      it 'タスクの編集ページへのアクセスが失敗する' do
-        task = create(:task, user: user)
-        visit edit_task_path(task.id)
-        expect(page).to have_content 'Login required'
-        expect(current_path).to eq login_path
+      context 'タスクの詳細ページにアクセス' do
+        it 'タスクの詳細情報が表示される' do
+          visit task_path(task)
+          expect(page).to have_content task.title
+          expect(current_path).to eq task_path(task)
+        end
       end
-    end
+      context 'タスクの編集ページにアクセス' do
+        it '編集ページへのアクセスが失敗する' do
+          visit edit_task_path(task)
+          expect(page).to have_content 'Login required'
+          expect(current_path).to eq login_path
+        end
+      end
+      context 'タスクの一覧ページにアクセス' do
+        it 'すべてのユーザーのタスク情報が表示される' do
+          task_list = create_list(:task, 3)
+          visit tasks_path
+          expect(page).to have_content task_list[0].title
+          expect(page).to have_content task_list[1].title
+          expect(page).to have_content task_list[2].title
+          expect(current_path).to eq tasks_path
+        end
+      end
+    end  
   end
 end
